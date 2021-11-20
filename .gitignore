@@ -1,4 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+*.pyc
+*.pyo
 
 # dependencies
 prod-ca-2021.crt
@@ -9,7 +11,8 @@ prod-ca-2021.crt
 # production
 /build
 /venv
-/archive
+/Zarchive
+
 
 # misc
 .DS_Store

@@ -1,7 +1,11 @@
+import pprint
 from django.db import models
+from django_countries.fields import CountryField
 from django_q.tasks import schedule
 from django_q.models import Schedule
-import json
+from .constants import TRACKER_TYPES, TRACKER_METHODS
+
+pp = pprint.PrettyPrinter(indent=4)
 
 # pre-save and delete signals
 from django.db.models.signals import pre_save, post_save, pre_delete
@@ -10,6 +14,12 @@ from django.db.models.signals import pre_save, post_save, pre_delete
 #     every=60,
 #     period=IntervalSchedule.SECONDS,
 # )
+
+DEFAULT_PARAMS = {"title_xpath": "", "link_xpath": "", "location_xpath": ""}
+
+
+def get_default_params():
+    return DEFAULT_PARAMS
 
 
 class AppBrand(models.Model):
@@ -21,6 +31,9 @@ class AppBrand(models.Model):
     class Meta:
         managed = False
         db_table = "app_brands"
+
+    def __str__(self):
+        return self.name
 
 
 class AppCategory(models.Model):
@@ -34,17 +47,8 @@ class AppCategory(models.Model):
         managed = False
         db_table = "app_categories"
 
-
-class AppItem(models.Model):
-    product = models.ForeignKey("AppProduct", models.DO_NOTHING)
-    store = models.ForeignKey("AppStore", models.DO_NOTHING)
-    url = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        managed = False
-        db_table = "app_items"
+    def __str__(self):
+        return self.name
 
 
 class AppProduct(models.Model):
@@ -59,9 +63,12 @@ class AppProduct(models.Model):
         managed = False
         db_table = "app_products"
 
+    def __str__(self):
+        return self.brand.name + " " + self.name
+
 
 class AppStoreLocation(models.Model):
-    store = models.ForeignKey("AppStore", models.DO_NOTHING)
+    site = models.ForeignKey("AppSite", models.DO_NOTHING)
     name = models.CharField(max_length=255)
     full_address = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
@@ -72,23 +79,32 @@ class AppStoreLocation(models.Model):
         managed = False
         db_table = "app_store_locations"
 
+    def __str__(self):
+        return self.name
 
-class AppStore(models.Model):
+
+class AppSite(models.Model):
     name = models.CharField(max_length=255)
-    description = models.TextField()
+    description = models.TextField(blank=True, null=True)
     url = models.TextField()
-    country = models.CharField(max_length=255)
+    country = CountryField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         managed = False
-        db_table = "app_stores"
+        db_table = "app_sites"
+
+    def __str__(self):
+        return self.name
 
 
 class AppTrackerChange(models.Model):
-    tracker = models.ForeignKey("AppTracker", models.DO_NOTHING)
-    change = models.CharField(max_length=255)
+    tracker = models.ForeignKey("AppTracker", models.CASCADE)
+    item_desc = models.CharField(max_length=255)
+    item_url = models.CharField(max_length=255)
+    available = models.BooleanField()
+    price = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -96,17 +112,33 @@ class AppTrackerChange(models.Model):
         managed = False
         db_table = "app_tracker_changes"
 
+    def __str__(self):
+        return self.tracker.site.name + " " + self.tracker.item_name
+
 
 class AppTracker(models.Model):
-    item = models.ForeignKey(AppItem, models.DO_NOTHING)
+    name = models.CharField(max_length=255)
+    search_key = models.CharField(max_length=255)
+    url = models.TextField()
+    site = models.ForeignKey(AppSite, models.DO_NOTHING)
+    product = models.ForeignKey(AppProduct, models.DO_NOTHING, blank=True, null=True)
     location = models.ForeignKey(
         AppStoreLocation, models.DO_NOTHING, blank=True, null=True
     )
-    active = models.BooleanField()
-    frequency = models.IntegerField()
-    type = models.CharField(max_length=255)
-    method = models.CharField(max_length=255)
-    params = models.JSONField()
+    active = models.BooleanField(default=True)
+    frequency = models.IntegerField(default=1)
+    repeats = models.IntegerField(default=-1)
+    type = models.CharField(
+        max_length=255,
+        choices=[(t, t) for t in TRACKER_TYPES],
+        default="new_item",
+    )
+    method = models.CharField(
+        max_length=255,
+        choices=[(t, t) for t in TRACKER_METHODS],
+        default="xpath",
+    )
+    params = models.JSONField(default=get_default_params)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -114,37 +146,52 @@ class AppTracker(models.Model):
         managed = False
         db_table = "app_trackers"
 
+    def __str__(self):
+        return self.site.name + " " + self.name
+
 
 def create_task(sender, instance, **kwargs):
-    url = instance.site.url + instance.url
-    if not Schedule.objects.filter(name=instance.page_id).exists():
-        schedule(
-            "api.tasks.check_page",
-            instance.page_id,
-            url,
-            instance.site.monitor_path,
-            instance.site.available_tag,
-            name=instance.tracker_id,
-            schedule_type=Schedule.MINUTES,
-            minutes=1,
-            repeats=-1,
-        )
+    params = [
+        instance.id,
+        instance.name,
+        instance.search_key,
+        instance.site.name,
+        instance.site.url,
+        instance.url,
+        instance.type,
+        instance.method,
+        instance.params,
+    ]
+    if not Schedule.objects.filter(name=instance.id).exists():
+        if instance.active:
+            schedule(
+                "app.utils.tracker.run",
+                *params,
+                name=instance.id,
+                schedule_type=Schedule.MINUTES,
+                minutes=instance.frequency,
+                repeats=instance.repeats,
+            )
     else:
-        task = Schedule.objects.get(name=instance.tracker_id)
-        args = [
-            instance.page_id,
-            url,
-            instance.site.monitor_path,
-            instance.site.available_tag,
-        ]
-        args = ",".join(f"'{a}'" for a in args)
-        task.args = args
-        task.save()
+        task = Schedule.objects.get(name=instance.id)
+        if instance.active:
+            args = ",".join(f"'{a}'" for a in params)
+            task.args = args
+            task.minutes = instance.frequency
+            task.repeats = instance.repeats
+            task.save()
+        else:
+            # delete task from the queue if deactivated
+            task.delete()
 
 
 def delete_task(sender, instance, **kwargs):
-    task = Schedule.objects.get(name=instance.page_id)
-    task.delete()
+    try:
+        task = Schedule.objects.get(name=instance.id)
+        task.delete()
+    except:
+        # NOTE add notification/logging
+        pass
 
 
 post_save.connect(create_task, sender=AppTracker)
@@ -167,9 +214,10 @@ class AppUserProfile(models.Model):
         db_table = "app_user_profiles"
 
 
+# User can be subscribe to a generic item (product) or to a specific tracker
 class AppUserSubscription(models.Model):
     user = models.ForeignKey(AppUserProfile, models.DO_NOTHING)
-    item = models.ForeignKey(AppItem, models.DO_NOTHING, blank=True, null=True)
+    tracker = models.ForeignKey(AppTracker, models.DO_NOTHING, blank=True, null=True)
     product = models.ForeignKey(AppProduct, models.DO_NOTHING, blank=True, null=True)
     paused = models.BooleanField()
     type = models.CharField(max_length=255)
