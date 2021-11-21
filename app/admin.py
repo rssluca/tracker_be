@@ -30,6 +30,7 @@ class AppTrackerAdmin(admin.ModelAdmin):
         # fields.JSONField: {'widget': JSONEditorWidget}, # if django < 3.1
         models.JSONField: {"widget": JSONEditorWidget},
     }
+    save_as = True
 
 
 admin.site.register(AppSite)

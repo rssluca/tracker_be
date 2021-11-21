@@ -46,6 +46,7 @@ class AppCategory(models.Model):
     class Meta:
         managed = False
         db_table = "app_categories"
+        verbose_name_plural = "categories"
 
     def __str__(self):
         return self.name
