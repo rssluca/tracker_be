@@ -114,7 +114,7 @@ class AppTrackerChange(models.Model):
         db_table = "app_tracker_changes"
 
     def __str__(self):
-        return self.tracker.site.name + " " + self.tracker.item_name
+        return self.tracker.site.name + " " + self.tracker.name
 
 
 class AppTracker(models.Model):
@@ -176,8 +176,7 @@ def create_task(sender, instance, **kwargs):
     else:
         task = Schedule.objects.get(name=instance.id)
         if instance.active:
-            args = ",".join(f"'{a}'" for a in params)
-            task.args = args
+            task.args = tuple(params)
             task.minutes = instance.frequency
             task.repeats = instance.repeats
             task.save()
