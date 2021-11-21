@@ -54,11 +54,7 @@ def get_selenium_new_item(id, url, params):
 
     driver.get(url)
 
-    title = driver.find_elements_by_xpath(params["title_xpath"])
-    # Check if the item containts info
-    if len(title) == 0:
-        raise ValueError(f"Tracker ID {id} returned no/incorrect data")
-    title = title[0].text
+    title = driver.find_elements_by_xpath(params["title_xpath"])[0].text
 
     item_url = driver.find_elements_by_xpath(params["link_xpath"])[0].get_attribute(
         "href"
@@ -75,15 +71,17 @@ def run(
     site_name,
     site_url,
     tracker_url,
+    login_user,
+    login_pwd,
     tracker_type,
     tracker_method,
     params,
 ):
 
     if tracker_method == "xpath":
-        title, item_url, location = get_xpath_new_item(id, tracker_url, params)
+        title, item_url, location = get_xpath_new_item(tracker_url, params)
     else:
-        title, item_url, location = get_selenium_new_item(id, tracker_url, params)
+        title, item_url, location = get_selenium_new_item(tracker_url, params)
 
     # Also search word must be in the title since places like
     # Facebook marketplace list other stuff
