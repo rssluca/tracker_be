@@ -79,9 +79,9 @@ def run(
 ):
 
     if tracker_method == "xpath":
-        title, item_url, location = get_xpath_new_item(tracker_url, params)
+        title, item_url, location = get_xpath_new_item(id, tracker_url, params)
     else:
-        title, item_url, location = get_selenium_new_item(tracker_url, params)
+        title, item_url, location = get_selenium_new_item(id, tracker_url, params)
 
     # Also search word must be in the title since places like
     # Facebook marketplace list other stuff
