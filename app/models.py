@@ -121,8 +121,6 @@ class AppTracker(models.Model):
     name = models.CharField(max_length=255)
     search_key = models.CharField(max_length=255)
     url = models.TextField()
-    login_user = models.CharField(max_length=255, blank=True, null=True)
-    login_pwd = models.CharField(max_length=255, blank=True, null=True)
     site = models.ForeignKey(AppSite, models.DO_NOTHING)
     product = models.ForeignKey(AppProduct, models.DO_NOTHING, blank=True, null=True)
     location = models.ForeignKey(
@@ -158,11 +156,8 @@ def create_task(sender, instance, **kwargs):
         instance.id,
         instance.name,
         instance.search_key,
-        instance.site.name,
-        instance.site.url,
+        instance.site.id,
         instance.url,
-        instance.login_user,
-        instance.login_pwd,
         instance.type,
         instance.method,
         instance.params,

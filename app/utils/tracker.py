@@ -1,6 +1,7 @@
 import requests
+import os
 from .notifications import send_slack_message
-from ..models import AppTrackerChange
+from ..models import AppTrackerChange, AppSite
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
 
 
@@ -52,6 +53,14 @@ def get_selenium_new_item(id, url, params):
         lambda x: x.execute_script("return document.readyState === 'complete'")
     )
 
+    driver.get("https://www.facebook.com")
+    username = driver.find_element_by_id("email")
+    password = driver.find_element_by_id("pass")
+    submit = driver.find_element_by_name("login")
+    username.send_keys(os.environ.get("FB_USER"))
+    password.send_keys(os.environ.get("FB_PWD"))
+    submit.click()
+
     driver.get(url)
 
     title = driver.find_elements_by_xpath(params["title_xpath"])
@@ -72,16 +81,13 @@ def run(
     id,
     name,
     search_key,
-    site_name,
-    site_url,
+    site_id,
     tracker_url,
-    login_user,
-    login_pwd,
     tracker_type,
     tracker_method,
     params,
 ):
-
+    site = AppSite.objects.get(id=site_id)
     if tracker_method == "xpath":
         title, item_url, location = get_xpath_new_item(id, tracker_url, params)
     else:
@@ -92,8 +98,8 @@ def run(
     if search_key.lower() in title.lower():
 
         # If site url is not in item_url, prepend it
-        if site_url not in item_url:
-            item_url = site_url + item_url
+        if site.url not in item_url:
+            item_url = site.url + item_url
 
         save = False
         if AppTrackerChange.objects.filter(tracker_id=id).exists():
@@ -112,7 +118,7 @@ def run(
             t = AppTrackerChange(tracker_id=id, item_desc=title, item_url=item_url)
             t.save()
             send_slack_message(
-                f"New item from {name} search on {site_name}",
+                f"New item from {name} search on {site.name}",
                 f"{title} just become available in {location} - {item_url}",
                 "TestAppBot",
                 "#alert",
