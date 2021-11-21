@@ -4,7 +4,7 @@ from ..models import AppTrackerChange
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
 
 
-def get_xpath_new_item(url, params):
+def get_xpath_new_item(id, url, params):
     from lxml import html
 
     page = requests.get(url, headers=HEADERS)
@@ -32,7 +32,7 @@ def get_xpath_new_item(url, params):
         return title, item_url, location
 
 
-def get_selenium_new_item(url, params):
+def get_selenium_new_item(id, url, params):
     from selenium import webdriver
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.common.exceptions import NoSuchElementException
@@ -54,7 +54,12 @@ def get_selenium_new_item(url, params):
 
     driver.get(url)
 
-    title = driver.find_elements_by_xpath(params["title_xpath"])[0].text
+    title = driver.find_elements_by_xpath(params["title_xpath"])
+    # Check if the item containts info
+    if len(title) == 0:
+        raise ValueError(f"Tracker ID {id} returned no/incorrect data")
+    title = title[0].text
+
     item_url = driver.find_elements_by_xpath(params["link_xpath"])[0].get_attribute(
         "href"
     )
@@ -76,9 +81,9 @@ def run(
 ):
 
     if tracker_method == "xpath":
-        title, item_url, location = get_xpath_new_item(tracker_url, params)
+        title, item_url, location = get_xpath_new_item(id, tracker_url, params)
     else:
-        title, item_url, location = get_selenium_new_item(tracker_url, params)
+        title, item_url, location = get_selenium_new_item(id, tracker_url, params)
 
     # Also search word must be in the title since places like
     # Facebook marketplace list other stuff
