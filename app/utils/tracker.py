@@ -1,7 +1,5 @@
 import requests
 import os
-
-from shoptrio.shoptrio_be.Zarchive.fb_driver import is_fb_logged_in
 from .notifications import send_slack_message
 from ..models import AppTrackerChange, AppSite
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
