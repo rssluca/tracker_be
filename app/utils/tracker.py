@@ -1,66 +1,11 @@
 import requests
 import os
+
+from shoptrio.shoptrio_be.Zarchive.fb_driver import is_fb_logged_in
 from .notifications import send_slack_message
 from ..models import AppTrackerChange, AppSite
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
-
-
-def get_selenium_driver():
-    from selenium import webdriver
-
-    if "EXECUTOR_URL" in os.environ and "SESSION_ID" in os.environ:
-        try:
-            driver = webdriver.Remote(
-                command_executor=os.environ["EXECUTOR_URL"], desired_capabilities={}
-            )
-            driver.session_id = os.environ["SESSION_ID"]
-            init_driver = False
-        except:
-            init_driver = True
-
-    else:
-        init_driver = True
-
-    if init_driver:
-
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.common.exceptions import NoSuchElementException
-        from webdriver_manager.chrome import ChromeDriverManager
-
-        options = webdriver.ChromeOptions()
-
-        options.add_argument("--ignore-certificate-errors")
-        options.add_argument("--test-type")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--headless")
-
-        # Disable image loading
-        chrome_prefs = {}
-        options.experimental_options["prefs"] = chrome_prefs
-        chrome_prefs["profile.default_content_settings"] = {"images": 2}
-        chrome_prefs["profile.managed_default_content_settings"] = {"images": 2}
-
-        driver = webdriver.Chrome(
-            ChromeDriverManager().install(),
-            options=options,
-        )
-
-        WebDriverWait(driver=driver, timeout=10).until(
-            lambda x: x.execute_script("return document.readyState === 'complete'")
-        )
-
-        driver.get("https://www.facebook.com")
-        username = driver.find_element_by_id("email")
-        password = driver.find_element_by_id("pass")
-        submit = driver.find_element_by_name("login")
-        username.send_keys(os.environ.get("FB_USER"))
-        password.send_keys(os.environ.get("FB_PWD"))
-        submit.click()
-
-        os.environ["EXECUTOR_URL"] = driver.command_executor._url
-        os.environ["SESSION_ID"] = driver.session_id
-
-    return driver
+from .selenium_driver import SeleniumDriver, is_fb_logged_in, fb_login
 
 
 def get_xpath_new_item(id, url, params):
@@ -92,7 +37,14 @@ def get_xpath_new_item(id, url, params):
 
 
 def get_selenium_new_item(id, url, params):
-    driver = get_selenium_driver()
+    selenium_object = SeleniumDriver()
+    driver = selenium_object.driver
+
+    if is_fb_logged_in(driver):
+        print("Already logged in")
+    else:
+        print("Not logged in. Login")
+        fb_login(os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
 
     driver.get(url)
 
