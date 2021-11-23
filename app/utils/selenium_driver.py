@@ -10,7 +10,7 @@ class SeleniumDriver(object):
     def __init__(
         self,
         # pickle file path to store cookies
-        cookies_file_path=os.getcwd() + "/cookies.pkl",
+        cookies_file_path="cookies.pkl",
         # list of websites to reuse cookies with
         cookies_websites=["https://facebook.com"],
     ):
