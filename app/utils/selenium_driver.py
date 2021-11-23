@@ -1,15 +1,16 @@
+import pickle
+import os
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
-import pickle
 
 
 class SeleniumDriver(object):
     def __init__(
         self,
         # pickle file path to store cookies
-        cookies_file_path="./cookies.pkl",
+        cookies_file_path=os.getcwd() + "/cookies.pkl",
         # list of websites to reuse cookies with
         cookies_websites=["https://facebook.com"],
     ):
