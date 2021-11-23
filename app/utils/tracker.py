@@ -45,6 +45,7 @@ def get_selenium_new_item(id, url, params):
         fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
 
     driver.get(url)
+    driver.implicitly_wait(4)
 
     title = driver.find_elements_by_xpath(params["title_xpath"])
     # Check if the item containts info
