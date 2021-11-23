@@ -76,6 +76,9 @@ def run(
     else:
         title, item_url, location = get_selenium_new_item(id, tracker_url, params)
 
+    # NOTE Move to facebook method
+    item_url = item_url.split("?")[0]
+
     # Also search word must be in the title since places like
     # Facebook marketplace list other stuff
     if search_key.lower() in title.lower():

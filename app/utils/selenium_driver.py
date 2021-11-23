@@ -10,16 +10,13 @@ class SeleniumDriver(object):
     def __init__(
         self,
         # pickle file path to store cookies
-        cookies_file_path="cookies.pkl",
+        cookies_file_path=os.getcwd() + "/cookies.pkl",
         # list of websites to reuse cookies with
         cookies_websites=["https://facebook.com"],
     ):
         self.cookies_file_path = cookies_file_path
         self.cookies_websites = cookies_websites
         chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--ignore-certificate-errors")
-        chrome_options.add_argument("--test-type")
-        chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--headless")
         self.driver = webdriver.Chrome(
             ChromeDriverManager().install(), options=chrome_options
