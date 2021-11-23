@@ -63,7 +63,7 @@ def is_fb_logged_in(driver):
         return True
 
 
-def fb_login(username, password):
+def fb_login(driver, username, password):
     username_box = driver.find_element_by_id("email")
     username_box.send_keys(username)
 

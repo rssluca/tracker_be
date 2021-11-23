@@ -42,7 +42,7 @@ def get_selenium_new_item(id, url, params):
         print("Already logged in")
     else:
         print("Not logged in. Login")
-        fb_login(os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
+        fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
 
     driver.get(url)
 
@@ -56,7 +56,7 @@ def get_selenium_new_item(id, url, params):
         "href"
     )
     location = driver.find_elements_by_xpath(params["location_xpath"])[0].text
-    driver.close()
+    selenium_object.quit()
     return title, item_url, location
 
 
