@@ -45,12 +45,10 @@ def get_selenium_new_item(id, url, params):
         fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
 
     driver.get(url)
-    driver.implicitly_wait(4)
+    driver.implicitly_wait(2)
 
     title = driver.find_elements_by_xpath(params["title_xpath"])
-    # Check if the item containts info
-    if len(title) == 0:
-        raise ValueError(f"Tracker ID {id} returned no/incorrect data")
+    driver.implicitly_wait(2)
     title = title[0].text
 
     item_url = driver.find_elements_by_xpath(params["link_xpath"])[0].get_attribute(
