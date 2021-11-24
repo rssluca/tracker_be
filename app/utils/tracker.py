@@ -24,31 +24,21 @@ def get_xpath_new_item(id, url, params):
 
         title = item_url = location = None
 
-        while title is None or item_url is None or location is None:
-            for set in params["xpaths"]:
-                t = tree.xpath(set["title_xpath"])
+    for set in params["xpaths"]:
+        t = tree.xpath(set["title_xpath"])
 
-                if len(t) != 0:
-                    title = t[0].text_content()
+        if len(t) != 0:
+            title = t[0].text_content()
 
-                u = tree.xpath(set["link_xpath"])
-                if len(t) != 0:
-                    item_url = u[0].get("href")
+        u = tree.xpath(set["link_xpath"])
+        if len(t) != 0:
+            item_url = u[0].get("href")
 
-                l = tree.xpath(set["location_xpath"])
-                if len(l) != 0:
-                    location = l[0].text_content()
-            break
-        else:
-            send_slack_message(
-                "ERROR!",
-                f"ERROR Tracker ID {id} returned no/incorrect data",
-                "TestAppBot",
-                "#errors",
-            )
-            raise ValueError(f"Tracker ID {id} returned no/incorrect data")
+        l = tree.xpath(set["location_xpath"])
+        if len(l) != 0:
+            location = l[0].text_content()
 
-        return title, item_url, location
+    return title, item_url, location
 
 
 def get_selenium_new_item(id, url, params):
@@ -66,30 +56,19 @@ def get_selenium_new_item(id, url, params):
 
     title = item_url = location = None
 
-    while title is None or item_url is None or location is None:
-        for set in params["xpaths"]:
-            t = driver.find_elements_by_xpath(set["title_xpath"])
+    for set in params["xpaths"]:
+        t = driver.find_elements_by_xpath(set["title_xpath"])
 
-            if len(t) != 0:
-                title = t[0].text
+        if len(t) != 0:
+            title = t[0].text
 
-            u = driver.find_elements_by_xpath(set["link_xpath"])
-            if len(t) != 0:
-                item_url = u[0].get_attribute("href")
+        u = driver.find_elements_by_xpath(set["link_xpath"])
+        if len(t) != 0:
+            item_url = u[0].get_attribute("href")
 
-            l = driver.find_elements_by_xpath(set["location_xpath"])
-            if len(l) != 0:
-                location = l[0].text
-        break
-    else:
-        send_slack_message(
-            "ERROR!",
-            f"ERROR Tracker ID {id} returned no/incorrect data",
-            "TestAppBot",
-            "#errors",
-        )
-        selenium_object.quit()
-        raise ValueError(f"Tracker ID {id} returned no/incorrect data")
+        l = driver.find_elements_by_xpath(set["location_xpath"])
+        if len(l) != 0:
+            location = l[0].text
 
     selenium_object.quit()
 
@@ -111,6 +90,17 @@ def run(
         title, item_url, location = get_xpath_new_item(id, tracker_url, params)
     else:
         title, item_url, location = get_selenium_new_item(id, tracker_url, params)
+
+    if title == item_url == location == None:
+        send_slack_message(
+            "ERROR!",
+            f"ERROR Tracker ID {id} returned no/incorrect data {title, item_url, location}",
+            "TestAppBot",
+            "#errors",
+        )
+        raise ValueError(
+            f"Tracker ID {id} returned no/incorrect data {title, item_url, location}"
+        )
 
     # NOTE Move to facebook method
     if "?" in item_url:
