@@ -88,6 +88,7 @@ def get_selenium_new_item(id, url, params):
             "TestAppBot",
             "#errors",
         )
+        selenium_object.quit()
         raise ValueError(f"Tracker ID {id} returned no/incorrect data")
 
     selenium_object.quit()
