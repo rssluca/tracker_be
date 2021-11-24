@@ -40,6 +40,12 @@ def get_xpath_new_item(id, url, params):
                     location = l[0].text_content()
             break
         else:
+            send_slack_message(
+                "ERROR!",
+                f"ERROR Tracker ID {id} returned no/incorrect data",
+                "TestAppBot",
+                "#errors",
+            )
             raise ValueError(f"Tracker ID {id} returned no/incorrect data")
 
         return title, item_url, location
@@ -76,6 +82,12 @@ def get_selenium_new_item(id, url, params):
                 location = l[0].text
         break
     else:
+        send_slack_message(
+            "ERROR!",
+            f"ERROR Tracker ID {id} returned no/incorrect data",
+            "TestAppBot",
+            "#errors",
+        )
         raise ValueError(f"Tracker ID {id} returned no/incorrect data")
 
     selenium_object.quit()
@@ -100,7 +112,8 @@ def run(
         title, item_url, location = get_selenium_new_item(id, tracker_url, params)
 
     # NOTE Move to facebook method
-    item_url = item_url.split("?")[0]
+    if "?" in item_url:
+        item_url = item_url.split("?")[0]
 
     # Also search word must be in the title since places like
     # Facebook marketplace list other stuff
