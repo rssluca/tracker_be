@@ -6,31 +6,6 @@ from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
 from .selenium_driver import SeleniumDriver, is_fb_logged_in, fb_login
 
 
-def get_xpaths(id, func):
-    title = None
-    item_url = None
-    location = None
-    while title is None or item_url is None or location is None:
-        for set in params["xpaths"]:
-            t = func(set["title_xpath"])
-
-            if len(t) != 0:
-                title = t[0].text
-
-            u = func(set["link_xpath"])
-            if len(t) != 0:
-                item_url = u[0].get_attribute("href")
-
-            l = func(set["location_xpath"])
-            if len(l) != 0:
-                location = l[0].text
-        break
-    else:
-        raise ValueError(f"Tracker ID {id} returned no/incorrect data")
-
-    return title, item_url, location
-
-
 def get_xpath_new_item(id, url, params):
     from lxml import html
 
@@ -46,7 +21,28 @@ def get_xpath_new_item(id, url, params):
         raise IOError(f"Call returned error {page.status_code}")
     else:
         tree = html.fromstring(page.content)
-        return get_xpaths(id, tree.xpath)
+
+        title = item_url = location = None
+
+        while title is None or item_url is None or location is None:
+            for set in params["xpaths"]:
+                t = tree.xpath(set["title_xpath"])
+
+                if len(t) != 0:
+                    title = t[0].text_content()
+
+                u = tree.xpath(set["link_xpath"])
+                if len(t) != 0:
+                    item_url = u[0].get("href")
+
+                l = tree.xpath(set["location_xpath"])
+                if len(l) != 0:
+                    location = l[0].text_content()
+            break
+        else:
+            raise ValueError(f"Tracker ID {id} returned no/incorrect data")
+
+        return title, item_url, location
 
 
 def get_selenium_new_item(id, url, params):
@@ -62,8 +58,25 @@ def get_selenium_new_item(id, url, params):
     driver.get(url)
     driver.implicitly_wait(4)
 
-    # We can just return them like with lxml tree above since we need to close the driver.
-    title, item_url, location = get_xpaths(id, driver.find_elements_by_xpath)
+    title = item_url = location = None
+
+    while title is None or item_url is None or location is None:
+        for set in params["xpaths"]:
+            t = driver.find_elements_by_xpath(set["title_xpath"])
+
+            if len(t) != 0:
+                title = t[0].text
+
+            u = driver.find_elements_by_xpath(set["link_xpath"])
+            if len(t) != 0:
+                item_url = u[0].get_attribute("href")
+
+            l = driver.find_elements_by_xpath(set["location_xpath"])
+            if len(l) != 0:
+                location = l[0].text
+        break
+    else:
+        raise ValueError(f"Tracker ID {id} returned no/incorrect data")
 
     selenium_object.quit()
 
