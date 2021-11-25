@@ -12,6 +12,7 @@ prod-ca-2021.crt
 /build
 /venv
 /Zarchive
+cookies.pkl
 
 
 # misc
