@@ -103,7 +103,7 @@ def run(
     if title == None:
         send_slack_message(
             "ERROR!",
-            f"ERROR Tracker ID {id - tracker_url} returned no/incorrect data {title, item_url, location}",
+            f"ERROR Tracker ID {id} - {tracker_url} returned no/incorrect data {title, item_url, location}",
             "TestAppBot",
             "#general",
         )

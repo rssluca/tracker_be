@@ -46,7 +46,6 @@ admin.site.register(AppSite)
 admin.site.register(AppProduct)
 admin.site.register(AppBrand)
 admin.site.register(AppCategory)
-# admin.site.register(AppItem, AppItemAdmin)
 admin.site.register(AppTrackerChange)
 admin.site.register(AppUserProfile)
 admin.site.register(AppUserSubscription)
@@ -58,7 +57,6 @@ admin.site.unregister([q_models.Failure])
 class ChildClassAdmin(q_admin.FailAdmin):
     list_display = (
         "name",
-        "func",
         "result",
         "started",
         # add attempt_count to list_display
