@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.db import models
+from django.utils.safestring import mark_safe
 
 # https://github.com/jmrivas86/django-json-widget
 from django_json_widget.widgets import JSONEditorWidget
@@ -26,6 +27,14 @@ from .models import (
 
 @admin.register(AppTracker)
 class AppTrackerAdmin(admin.ModelAdmin):
+    list_display = ["id", "site", "name", "active", "url_field"]
+
+    @mark_safe
+    def url_field(self, obj):
+        return '<a href="%s">%s</a>' % (obj.url, obj.url)
+
+    url_field.allow_tags = True
+    url_field.short_description = "URL"
     formfield_overrides = {
         # fields.JSONField: {'widget': JSONEditorWidget}, # if django < 3.1
         models.JSONField: {"widget": JSONEditorWidget},

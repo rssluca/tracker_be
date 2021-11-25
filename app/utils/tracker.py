@@ -4,6 +4,9 @@ from .notifications import send_slack_message
 from ..models import AppTrackerChange, AppSite
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
 from .selenium_driver import SeleniumDriver, is_fb_logged_in, fb_login
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 def get_xpath_new_item(id, url, params):
@@ -52,25 +55,31 @@ def get_selenium_new_item(id, url, params):
         fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
 
     driver.get(url)
-    driver.implicitly_wait(4)
+    try:
+        elem = WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located(
+                (By.XPATH, "Element_to_be_found")
+            )  # This is a dummy element
+        )
+    finally:
 
-    title = item_url = location = None
+        title = item_url = location = None
 
-    for set in params["xpaths"]:
-        t = driver.find_elements_by_xpath(set["title_xpath"])
+        for set in params["xpaths"]:
+            t = driver.find_elements_by_xpath(set["title_xpath"])
 
-        if len(t) != 0:
-            title = t[0].text
+            if len(t) != 0:
+                title = t[0].text
 
-        u = driver.find_elements_by_xpath(set["link_xpath"])
-        if len(t) != 0:
-            item_url = u[0].get_attribute("href")
+            u = driver.find_elements_by_xpath(set["link_xpath"])
+            if len(t) != 0:
+                item_url = u[0].get_attribute("href")
 
-        l = driver.find_elements_by_xpath(set["location_xpath"])
-        if len(l) != 0:
-            location = l[0].text
+            l = driver.find_elements_by_xpath(set["location_xpath"])
+            if len(l) != 0:
+                location = l[0].text
 
-    selenium_object.quit()
+        selenium_object.quit()
 
     return title, item_url, location
 
@@ -91,12 +100,12 @@ def run(
     else:
         title, item_url, location = get_selenium_new_item(id, tracker_url, params)
 
-    if title == item_url == location == None:
+    if title == None:
         send_slack_message(
             "ERROR!",
-            f"ERROR Tracker ID {id} returned no/incorrect data {title, item_url, location}",
+            f"ERROR Tracker ID {id - tracker_url} returned no/incorrect data {title, item_url, location}",
             "TestAppBot",
-            "#errors",
+            "#general",
         )
         raise ValueError(
             f"Tracker ID {id} returned no/incorrect data {title, item_url, location}"
@@ -106,10 +115,15 @@ def run(
     if "?" in item_url:
         item_url = item_url.split("?")[0]
 
+    # SKIP RULES
+    skip = False
     # Also search word must be in the title since places like
     # Facebook marketplace list other stuff
-    if search_key.lower() in title.lower():
+    matches = ["wanted", "looking for", "anyone got"]
+    if search_key.lower() not in title.lower() or any(x in title.lower() for x in matches) or :
+        skip = True
 
+    if not skip:
         # If site url is not in item_url, prepend it
         if site.url not in item_url:
             item_url = site.url + item_url
