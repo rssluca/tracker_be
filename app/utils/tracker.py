@@ -32,14 +32,14 @@ def get_xpath_new_item(id, url, params):
 
         if len(t) != 0:
             title = t[0].text_content()
-
-        u = tree.xpath(set["link_xpath"])
-        if len(t) != 0:
-            item_url = u[0].get("href")
-
-        l = tree.xpath(set["location_xpath"])
-        if len(l) != 0:
-            location = l[0].text_content()
+        if set["link_xpath"] != "":
+            u = tree.xpath(set["link_xpath"])
+            if len(t) != 0:
+                item_url = u[0].get("href")
+        if set["location_xpath"] != "":
+            l = tree.xpath(set["location_xpath"])
+            if len(l) != 0:
+                location = l[0].text_content()
 
     return title, item_url, location
 
@@ -70,14 +70,14 @@ def get_selenium_new_item(id, url, params):
 
             if len(t) != 0:
                 title = t[0].text
-
-            u = driver.find_elements_by_xpath(set["link_xpath"])
-            if len(t) != 0:
-                item_url = u[0].get_attribute("href")
-
-            l = driver.find_elements_by_xpath(set["location_xpath"])
-            if len(l) != 0:
-                location = l[0].text
+            if set["link_xpath"] != "":
+                u = driver.find_elements_by_xpath(set["link_xpath"])
+                if len(t) != 0:
+                    item_url = u[0].get_attribute("href")
+            if set["location_xpath"] != "":
+                l = driver.find_elements_by_xpath(set["location_xpath"])
+                if len(l) != 0:
+                    location = l[0].text
 
         selenium_object.quit()
 
