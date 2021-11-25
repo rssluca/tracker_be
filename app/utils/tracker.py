@@ -120,7 +120,9 @@ def run(
     # Also search word must be in the title since places like
     # Facebook marketplace list other stuff
     matches = ["wanted", "looking for", "anyone got"]
-    if search_key.lower() not in title.lower() or any(x in title.lower() for x in matches) or :
+    if search_key.lower() not in title.lower() or any(
+        x in title.lower() for x in matches
+    ):
         skip = True
 
     if not skip:
