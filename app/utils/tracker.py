@@ -55,31 +55,31 @@ def get_selenium_new_item(id, url, params):
         fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
 
     driver.get(url)
-    try:
-        elem = WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located(
-                (By.XPATH, "Element_to_be_found")
-            )  # This is a dummy element
-        )
-    finally:
+    # try:
+    #     elem = WebDriverWait(driver, 30).until(
+    #         EC.presence_of_element_located(
+    #             (By.XPATH, "Element_to_be_found")
+    #         )  # This is a dummy element
+    #     )
+    # finally:
 
-        title = item_url = location = None
+    title = item_url = location = None
 
-        for set in params["xpaths"]:
-            t = driver.find_elements_by_xpath(set["title_xpath"])
+    for set in params["xpaths"]:
+        t = driver.find_elements_by_xpath(set["title_xpath"])
 
+        if len(t) != 0:
+            title = t[0].text
+        if set["link_xpath"] != "":
+            u = driver.find_elements_by_xpath(set["link_xpath"])
             if len(t) != 0:
-                title = t[0].text
-            if set["link_xpath"] != "":
-                u = driver.find_elements_by_xpath(set["link_xpath"])
-                if len(t) != 0:
-                    item_url = u[0].get_attribute("href")
-            if set["location_xpath"] != "":
-                l = driver.find_elements_by_xpath(set["location_xpath"])
-                if len(l) != 0:
-                    location = l[0].text
+                item_url = u[0].get_attribute("href")
+        if set["location_xpath"] != "":
+            l = driver.find_elements_by_xpath(set["location_xpath"])
+            if len(l) != 0:
+                location = l[0].text
 
-        selenium_object.quit()
+    selenium_object.quit()
 
     return title, item_url, location
 
