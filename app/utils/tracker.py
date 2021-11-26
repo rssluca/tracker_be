@@ -13,15 +13,15 @@ def get_xpaths(xpath_method, text_method_str, get_method_str, params, id, tracke
         t = xpath_method(set["title_xpath"])
 
         if len(t) != 0:
-            title = getattr(t[0], "text_method_str")()
+            title = getattr(t[0], text_method_str)()
         if set["link_xpath"] != "":
             u = xpath_method(set["link_xpath"])
             if len(t) != 0:
-                item_url = getattr(u[0], "get_method_str")("href")
+                item_url = getattr(u[0], get_method_str)("href")
         if set["location_xpath"] != "":
             l = xpath_method(set["location_xpath"])
             if len(l) != 0:
-                location = getattr(l[0], "text_method_str")()
+                location = getattr(l[0], text_method_str)()
 
     if title == None:
         send_slack_message(
@@ -76,7 +76,7 @@ def get_selenium_new_item(id, tracker_url, params):
     title = item_url = location = None
 
     title, item_url, location = get_xpaths(
-        driver, "text_content", "get", params, id, tracker_url
+        driver.find_elements_by_xpath, "text_content", "get", params, id, tracker_url
     )
 
     selenium_object.quit()
