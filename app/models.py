@@ -1,6 +1,8 @@
 import pprint
+from cron_converter import Cron
 from django.db import models
 from django_countries.fields import CountryField
+from django.core.exceptions import ValidationError
 from django_q.tasks import schedule
 from django_q.models import Schedule
 from .constants import TRACKER_TYPES, TRACKER_METHODS, DEFAULT_PARAMS
@@ -146,6 +148,13 @@ class AppTracker(models.Model):
         managed = False
         db_table = "app_trackers"
 
+    def clean(self):
+        # Check id cron is valid
+        try:
+            cron_instance = Cron(self.cron_schedule)
+        except:
+            raise ValidationError("Cron schedule format is invalid.")
+
     def __str__(self):
         return self.site.name + " " + self.name
 
@@ -164,14 +173,14 @@ def create_task(sender, instance, **kwargs):
 
     if instance.cron_schedule:
         sched_params = {
-            "schedule_type": Schedule.MINUTES,
-            "minutes": instance.frequency,
-            "repeats": instance.repeats,
+            "schedule_type": Schedule.CRON,
+            "cron": instance.cron,
         }
     else:
         sched_params = {
-            "schedule_type": Schedule.CRON,
-            "cron": instance.cron,
+            "schedule_type": Schedule.MINUTES,
+            "minutes": instance.frequency,
+            "repeats": instance.repeats,
         }
 
     if not Schedule.objects.filter(name=instance.id).exists():
