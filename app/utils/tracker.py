@@ -6,46 +6,15 @@ from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
 from .selenium_driver import SeleniumDriver, is_fb_logged_in, fb_login
 
 
-def get_xpaths(xpath_method, text_method_str, get_method_str, params, id, tracker_url):
-    title = item_url = location = None
-
-    for set in params["xpaths"]:
-        t = xpath_method(set["title_xpath"])
-
-        if len(t) != 0:
-            title = getattr(t[0], text_method_str)()
-        if set["link_xpath"] != "":
-            u = xpath_method(set["link_xpath"])
-            if len(t) != 0:
-                item_url = getattr(u[0], get_method_str)("href")
-        if set["location_xpath"] != "":
-            l = xpath_method(set["location_xpath"])
-            if len(l) != 0:
-                location = getattr(l[0], text_method_str)()
-
-    if title == None:
-        send_slack_message(
-            "ERROR!",
-            f"ERROR Tracker ID {id} - {tracker_url} returned no/incorrect data {title, item_url, location}",
-            "TestAppBot",
-            "#general",
-        )
-        raise ValueError(
-            f"Tracker ID {id} returned no/incorrect data {title, item_url, location}"
-        )
-
-    return title, item_url, location
-
-
-def get_xpath_new_item(id, tracker_url, params):
+def get_xpath_new_item(id, url, params):
     from lxml import html
 
-    page = requests.get(tracker_url, headers=HEADERS)
+    page = requests.get(url, headers=HEADERS)
 
     if page.status_code != 200:
         send_slack_message(
             "ERROR!",
-            f"ERROR {tracker_url} status code {page.status_code}",
+            f"ERROR {url} status code {page.status_code}",
             "TestAppBot",
             "#errors",
         )
@@ -53,14 +22,26 @@ def get_xpath_new_item(id, tracker_url, params):
     else:
         tree = html.fromstring(page.content)
 
-    title, item_url, location = get_xpaths(
-        tree.xpath, "text_content", "get", params, id, tracker_url
-    )
+        title = item_url = location = None
+
+    for set in params["xpaths"]:
+        t = tree.xpath(set["title_xpath"])
+
+        if len(t) != 0:
+            title = t[0].text_content()
+        if set["link_xpath"] != "":
+            u = tree.xpath(set["link_xpath"])
+            if len(t) != 0:
+                item_url = u[0].get("href")
+        if set["location_xpath"] != "":
+            l = tree.xpath(set["location_xpath"])
+            if len(l) != 0:
+                location = l[0].text_content()
 
     return title, item_url, location
 
 
-def get_selenium_new_item(id, tracker_url, params):
+def get_selenium_new_item(id, url, params):
     selenium_object = SeleniumDriver()
     driver = selenium_object.driver
 
@@ -70,14 +51,24 @@ def get_selenium_new_item(id, tracker_url, params):
         print("Not logged in. Login")
         fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
 
-    driver.get(tracker_url)
+    driver.get(url)
     driver.implicitly_wait(5)
 
     title = item_url = location = None
 
-    title, item_url, location = get_xpaths(
-        driver.find_elements_by_xpath, "text_content", "get", params, id, tracker_url
-    )
+    for set in params["xpaths"]:
+        t = driver.find_elements_by_xpath(set["title_xpath"])
+
+        if len(t) != 0:
+            title = t[0].text
+        if set["link_xpath"] != "":
+            u = driver.find_elements_by_xpath(set["link_xpath"])
+            if len(t) != 0:
+                item_url = u[0].get_attribute("href")
+        if set["location_xpath"] != "":
+            l = driver.find_elements_by_xpath(set["location_xpath"])
+            if len(l) != 0:
+                location = l[0].text
 
     selenium_object.quit()
 
@@ -99,6 +90,17 @@ def run(
         title, item_url, location = get_xpath_new_item(id, tracker_url, params)
     else:
         title, item_url, location = get_selenium_new_item(id, tracker_url, params)
+
+    if title == None:
+        send_slack_message(
+            "ERROR!",
+            f"ERROR Tracker ID {id} - {tracker_url} returned no/incorrect data {title, item_url, location}",
+            "TestAppBot",
+            "#general",
+        )
+        raise ValueError(
+            f"Tracker ID {id} returned no/incorrect data {title, item_url, location}"
+        )
 
     # NOTE Move to facebook method
     if item_url and "?" in item_url:
