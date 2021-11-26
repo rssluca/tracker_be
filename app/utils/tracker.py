@@ -112,7 +112,7 @@ def run(
         )
 
     # NOTE Move to facebook method
-    if "?" in item_url:
+    if item_url and "?" in item_url:
         item_url = item_url.split("?")[0]
 
     # SKIP RULES
