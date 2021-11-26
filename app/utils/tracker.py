@@ -4,9 +4,6 @@ from .notifications import send_slack_message
 from ..models import AppTrackerChange, AppSite
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
 from .selenium_driver import SeleniumDriver, is_fb_logged_in, fb_login
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 
 def get_xpaths(xpath_method, text_method_str, get_method_str, params, id, tracker_url):
@@ -74,13 +71,7 @@ def get_selenium_new_item(id, tracker_url, params):
         fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
 
     driver.get(tracker_url)
-    # try:
-    #     elem = WebDriverWait(driver, 30).until(
-    #         EC.presence_of_element_located(
-    #             (By.XPATH, "Element_to_be_found")
-    #         )  # This is a dummy element
-    #     )
-    # finally:
+    driver.implicitly_wait(5)
 
     title = item_url = location = None
 
