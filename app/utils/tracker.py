@@ -4,25 +4,81 @@ from .notifications import send_slack_message
 from ..models import AppTrackerChange, AppSite
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
 from .selenium_driver import SeleniumDriver, is_fb_logged_in, fb_login
+from lxml import html
 
 
-def get_xpath_new_item(id, url, params):
-    from lxml import html
+def get_lxml_page(tracker_url):
+    """Retrieve a page source with lxml html
 
-    page = requests.get(url, headers=HEADERS)
+    Args:
+        tracker_url (string): The tracker url
+
+    Raises:
+        IOError: Page not 200/OK
+
+    Returns:
+        Object: lxml page tree
+    """
+    page = requests.get(tracker_url, headers=HEADERS)
 
     if page.status_code != 200:
         send_slack_message(
             "ERROR!",
-            f"ERROR {url} status code {page.status_code}",
+            f"ERROR {tracker_url} status code {page.status_code}",
             "TestAppBot",
-            "#errors",
+            "SLACK_KEY_ERROR_ALERTS",
         )
         raise IOError(f"Call returned error {page.status_code}")
     else:
         tree = html.fromstring(page.content)
 
-        title = item_url = location = None
+        return tree
+
+
+def get_selenium_page(tracker_url):
+    """Retrieve a page source with Selenium
+
+    Args:
+        tracker_url (string): The tracker url
+
+    Returns:
+        list [object]: selenium_object and driver with page
+    """
+    try:
+        selenium_object = SeleniumDriver()
+        driver = selenium_object.driver
+
+        if is_fb_logged_in(driver):
+            print("Already logged in")
+        else:
+            print("Not logged in. Login")
+            fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
+
+        driver.get(tracker_url)
+        driver.implicitly_wait(5)
+    except Exception as e:
+        e_type = type(e).__name__
+        print(e_type, "in Selenium get_page")
+
+    return selenium_object, driver
+
+
+def get_lxml_new_items(id, tracker_url, params):
+    """Get new items from lxml tree and extract first title, location and link params from it
+    TODO allow any params not just the above ones.
+
+    Args:
+        id (int): The id of the tracker
+        tracker_url (string): The tracker url
+        params (list[dict]): A list of xpaths (can change)
+
+    Returns:
+        list[string]: title, item_url, location
+    """
+
+    tree = get_lxml_page(tracker_url)
+
+    title = item_url = location = None
 
     for set in params["xpaths"]:
         t = tree.xpath(set["title_xpath"])
@@ -41,18 +97,19 @@ def get_xpath_new_item(id, url, params):
     return title, item_url, location
 
 
-def get_selenium_new_item(id, url, params):
-    selenium_object = SeleniumDriver()
-    driver = selenium_object.driver
+def get_selenium_new_items(id, tracker_url, params):
+    """Get new items from the selenium page and extract first title, location and link params from it
+    TODO allow any params not just the above ones.
 
-    if is_fb_logged_in(driver):
-        print("Already logged in")
-    else:
-        print("Not logged in. Login")
-        fb_login(driver, os.environ.get("FB_USER"), os.environ.get("FB_PWD"))
+    Args:
+        id (int): The id of the tracker
+        tracker_url (string): The tracker url
+        params (list[dict]): A list of xpaths (can change)
 
-    driver.get(url)
-    driver.implicitly_wait(5)
+    Returns:
+        list[string]: title, item_url, location
+    """
+    selenium_object, driver = get_selenium_page(tracker_url)
 
     title = item_url = location = None
 
@@ -87,16 +144,16 @@ def run(
 ):
     site = AppSite.objects.get(id=site_id)
     if tracker_method == "xpath":
-        title, item_url, location = get_xpath_new_item(id, tracker_url, params)
+        title, item_url, location = get_lxml_new_items(id, tracker_url, params)
     else:
-        title, item_url, location = get_selenium_new_item(id, tracker_url, params)
+        title, item_url, location = get_selenium_new_items(id, tracker_url, params)
 
     if title == None:
         send_slack_message(
             "ERROR!",
             f"ERROR Tracker ID {id} - {tracker_url} returned no/incorrect data {title, item_url, location}",
             "TestAppBot",
-            "#general",
+            "SLACK_KEY_ERROR_ALERTS",
         )
         raise ValueError(
             f"Tracker ID {id} returned no/incorrect data {title, item_url, location}"
@@ -137,9 +194,14 @@ def run(
         if save:
             t = AppTrackerChange(tracker_id=id, item_desc=title, item_url=item_url)
             t.save()
+            token = (
+                "SLACK_KEY_VESPA_ALERTS"
+                if search_key == "vespa"
+                else "SLACK_KEY_ALERTS"
+            )
             send_slack_message(
                 f"New item from {name} search on {site.name}",
                 f"{title} just become available in {location} - {item_url}",
                 "TestAppBot",
-                "#alert",
+                token,
             )

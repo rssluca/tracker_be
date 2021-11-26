@@ -3,19 +3,12 @@ from django.db import models
 from django_countries.fields import CountryField
 from django_q.tasks import schedule
 from django_q.models import Schedule
-from .constants import TRACKER_TYPES, TRACKER_METHODS
+from .constants import TRACKER_TYPES, TRACKER_METHODS, DEFAULT_PARAMS
 
 pp = pprint.PrettyPrinter(indent=4)
 
 # pre-save and delete signals
 from django.db.models.signals import pre_save, post_save, pre_delete
-
-# schedule, created = IntervalSchedule.objects.get_or_create(
-#     every=60,
-#     period=IntervalSchedule.SECONDS,
-# )
-
-DEFAULT_PARAMS = {"title_xpath": "", "link_xpath": "", "location_xpath": ""}
 
 
 def get_default_params():
@@ -129,6 +122,12 @@ class AppTracker(models.Model):
     active = models.BooleanField(default=True)
     frequency = models.IntegerField(default=1)
     repeats = models.IntegerField(default=-1)
+    cron_schedule = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="https://docs.oracle.com/cd/E12058_01/doc/doc.1014/e12030/cron_expressions.htm",
+    )
     type = models.CharField(
         max_length=255,
         choices=[(t, t) for t in TRACKER_TYPES],
@@ -162,22 +161,33 @@ def create_task(sender, instance, **kwargs):
         instance.method,
         instance.params,
     ]
+
+    if instance.cron_schedule:
+        sched_params = {
+            "schedule_type": Schedule.MINUTES,
+            "minutes": instance.frequency,
+            "repeats": instance.repeats,
+        }
+    else:
+        sched_params = {
+            "schedule_type": Schedule.CRON,
+            "cron": instance.cron,
+        }
+
     if not Schedule.objects.filter(name=instance.id).exists():
         if instance.active:
-            schedule(
-                "app.utils.tracker.run",
-                *params,
-                name=instance.id,
-                schedule_type=Schedule.MINUTES,
-                minutes=instance.frequency,
-                repeats=instance.repeats,
-            )
+            schedule("app.utils.tracker.run", *params, name=instance.id, **sched_params)
     else:
         task = Schedule.objects.get(name=instance.id)
         if instance.active:
             task.args = tuple(params)
-            task.minutes = instance.frequency
-            task.repeats = instance.repeats
+            if instance.cron_schedule:
+                task.schedule_type = Schedule.CRON
+                task.cron = instance.cron
+            else:
+                task.schedule_type = Schedule.MINUTES
+                task.minutes = instance.frequency
+                task.repeats = instance.repeats
             task.save()
         else:
             # delete task from the queue if deactivated

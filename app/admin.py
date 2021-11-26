@@ -1,6 +1,11 @@
 from django.contrib import admin
 from django.db import models
 from django.utils.safestring import mark_safe
+import datetime
+from django.utils import timezone
+
+print(datetime.datetime.now())
+print(timezone.now())
 
 # https://github.com/jmrivas86/django-json-widget
 from django_json_widget.widgets import JSONEditorWidget
@@ -55,6 +60,11 @@ admin.site.unregister([q_models.Failure])
 
 @admin.register(q_models.Failure)
 class ChildClassAdmin(q_admin.FailAdmin):
+    actions = ["silent_delete"]
+
+    def silent_delete(self, request, queryset):
+        queryset.delete()
+
     list_display = (
         "name",
         "result",
