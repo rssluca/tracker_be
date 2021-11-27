@@ -188,7 +188,7 @@ def create_task(sender, instance, **kwargs):
             schedule(
                 "app.utils.tracker.check" + instance.type,
                 *params,
-                hook="app.utils.hooks.notify_error",
+                hook="app.hooks.notify_error",
                 name=instance.id,
                 **sched_params
             )
