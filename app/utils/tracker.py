@@ -132,7 +132,7 @@ def get_selenium_new_items(id, tracker_url, params):
     return title, item_url, location
 
 
-def run(
+def check_new_item(
     id,
     name,
     search_key,
@@ -143,6 +143,7 @@ def run(
     params,
 ):
     site = AppSite.objects.get(id=site_id)
+
     if tracker_method == "xpath":
         title, item_url, location = get_lxml_new_items(id, tracker_url, params)
     else:
@@ -191,17 +192,15 @@ def run(
         else:
             save = True
 
-        if save:
-            t = AppTrackerChange(tracker_id=id, item_desc=title, item_url=item_url)
-            t.save()
-            token = (
-                "SLACK_KEY_VESPA_ALERTS"
-                if search_key == "vespa"
-                else "SLACK_KEY_ALERTS"
-            )
-            send_slack_message(
-                f"New item from {name} search on {site.name}",
-                f"{title} just become available in {location} - {item_url}",
-                "TestAppBot",
-                token,
-            )
+    if save:
+        t = AppTrackerChange(tracker_id=id, item_desc=title, item_url=item_url)
+        t.save()
+        token = (
+            "SLACK_KEY_VESPA_ALERTS" if search_key == "vespa" else "SLACK_KEY_ALERTS"
+        )
+        send_slack_message(
+            f"New item from {name} search on {site.name}",
+            f"{title} just become available in {location} - {item_url}",
+            "TestAppBot",
+            token,
+        )
