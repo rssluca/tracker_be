@@ -185,7 +185,13 @@ def create_task(sender, instance, **kwargs):
 
     if not Schedule.objects.filter(name=instance.id).exists():
         if instance.active:
-            schedule("app.utils.tracker.run", *params, name=instance.id, **sched_params)
+            schedule(
+                "app.utils.tracker.check" + instance.type,
+                *params,
+                hook="app.utils.hooks.notify_error",
+                ame=instance.id,
+                **sched_params
+            )
     else:
         task = Schedule.objects.get(name=instance.id)
         if instance.active:
