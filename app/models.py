@@ -97,10 +97,12 @@ class AppSite(models.Model):
 
 class AppTrackerChange(models.Model):
     tracker = models.ForeignKey("AppTracker", models.CASCADE)
-    item_desc = models.CharField(max_length=255)
-    item_url = models.CharField(max_length=255)
+    item_desc = models.CharField(max_length=255, blank=True, null=True)
+    item_url = models.CharField(max_length=255, blank=True, null=True)
     available = models.BooleanField()
-    price = models.FloatField()
+    price = models.FloatField(blank=True, null=True)
+    changed_content = models.TextField(blank=True, null=True)
+    changes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -166,7 +168,6 @@ def create_task(sender, instance, **kwargs):
         instance.search_key,
         instance.site.id,
         instance.url,
-        instance.type,
         instance.method,
         instance.params,
     ]

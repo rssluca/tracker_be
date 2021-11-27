@@ -4,9 +4,6 @@ from django.utils.safestring import mark_safe
 import datetime
 from django.utils import timezone
 
-print(datetime.datetime.now())
-print(timezone.now())
-
 # https://github.com/jmrivas86/django-json-widget
 from django_json_widget.widgets import JSONEditorWidget
 from django_q import models as q_models

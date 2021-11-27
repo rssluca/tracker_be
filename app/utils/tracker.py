@@ -1,5 +1,7 @@
 import requests
 import os
+import json
+import difflib as dl
 from .notifications import send_slack_message
 from ..models import AppTrackerChange, AppSite
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
@@ -22,12 +24,12 @@ def get_lxml_page(tracker_url):
     page = requests.get(tracker_url, headers=HEADERS)
 
     if page.status_code != 200:
-        send_slack_message(
-            "ERROR!",
-            f"ERROR {tracker_url} status code {page.status_code}",
-            "TestAppBot",
-            "SLACK_KEY_ERROR_ALERTS",
-        )
+        # send_slack_message(
+        #     "ERROR!",
+        #     f"ERROR {tracker_url} status code {page.status_code}",
+        #     "TestAppBot",
+        #     "SLACK_KEY_ERROR_ALERTS",
+        # )
         raise IOError(f"Call returned error {page.status_code}")
     else:
         tree = html.fromstring(page.content)
@@ -132,13 +134,79 @@ def get_selenium_new_items(id, tracker_url, params):
     return title, item_url, location
 
 
+def get_content(tracker_url, tracker_method, items_params):
+    """Get content for multiple items.
+
+    Args:
+        tracker_url (str): The tracker url.
+        tracker_method (str): The tracker method.
+        items_params (list[dict]): the list of items params.
+
+    Returns:
+        list: The contents.
+    """
+
+    content = []
+
+    if tracker_method == "xpath":
+        tree = get_lxml_page(tracker_url)
+        for item_params in items_params:
+            for set in item_params["xpaths"]:
+                content.append(tree.xpath(set["content_xpath"])[0].text_content())
+    else:
+        selenium_object, driver = get_selenium_page(tracker_url)
+        for item_params in items_params:
+            for set in item_params["xpaths"]:
+                content.append(
+                    driver.find_elements_by_xpath(set["content_xpath"])[0].text
+                )
+
+        selenium_object.quit()
+
+    return content
+
+
+def check_change(
+    id,
+    name,
+    search_key,
+    site_id,
+    tracker_url,
+    tracker_method,
+    params,
+):
+    site = AppSite.objects.get(id=site_id)
+    content = get_content(tracker_url, tracker_method, [params])
+
+    changes = None
+
+    if AppTrackerChange.objects.filter(tracker_id=id).exists():
+        change = (
+            AppTrackerChange.objects.filter(tracker_id=id).order_by("id").reverse()[0]
+        )
+        if change.changed_content != content[0]:
+            d = dl.Differ()
+            changes = json.dumps(d.compare(change.changed_content, content[0]))
+    else:
+        changes = content[0]
+
+    if changes:
+        t = AppTrackerChange(tracker_id=id, changed_content=content[0], changes=changes)
+        t.save()
+        send_slack_message(
+            f"Page {tracker_url} has changed",
+            changes,
+            "TestAppBot",
+            "SLACK_KEY_ALERTS",
+        )
+
+
 def check_new_item(
     id,
     name,
     search_key,
     site_id,
     tracker_url,
-    tracker_type,
     tracker_method,
     params,
 ):
@@ -150,12 +218,6 @@ def check_new_item(
         title, item_url, location = get_selenium_new_items(id, tracker_url, params)
 
     if title == None:
-        send_slack_message(
-            "ERROR!",
-            f"ERROR Tracker ID {id} - {tracker_url} returned no/incorrect data {title, item_url, location}",
-            "TestAppBot",
-            "SLACK_KEY_ERROR_ALERTS",
-        )
         raise ValueError(
             f"Tracker ID {id} returned no/incorrect data {title, item_url, location}"
         )
