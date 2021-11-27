@@ -174,12 +174,13 @@ def check_new_item(
     ):
         skip = True
 
+    save = False
+
     if not skip:
         # If site url is not in item_url, prepend it
         if site.url not in item_url:
             item_url = site.url + item_url
 
-        save = False
         if AppTrackerChange.objects.filter(tracker_id=id).exists():
             change = (
                 AppTrackerChange.objects.filter(tracker_id=id)
