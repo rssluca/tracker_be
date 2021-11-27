@@ -189,7 +189,7 @@ def create_task(sender, instance, **kwargs):
                 "app.utils.tracker.check" + instance.type,
                 *params,
                 hook="app.utils.hooks.notify_error",
-                ame=instance.id,
+                name=instance.id,
                 **sched_params
             )
     else:
