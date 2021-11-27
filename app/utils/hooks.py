@@ -1,5 +1,5 @@
 from notifications import send_slack_message
 
 
-def notify_error(task):
-    print(dir(task))
+def notify_error(Task):
+    print(dir(Task))

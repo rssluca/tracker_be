@@ -114,7 +114,7 @@ class AppTrackerChange(models.Model):
 
 class AppTracker(models.Model):
     name = models.CharField(max_length=255)
-    search_key = models.CharField(max_length=255)
+    search_key = models.CharField(max_length=255, blank=True, null=True)
     url = models.TextField()
     site = models.ForeignKey(AppSite, models.DO_NOTHING)
     product = models.ForeignKey(AppProduct, models.DO_NOTHING, blank=True, null=True)
@@ -174,7 +174,7 @@ def create_task(sender, instance, **kwargs):
     if instance.cron_schedule:
         sched_params = {
             "schedule_type": Schedule.CRON,
-            "cron": instance.cron,
+            "cron": instance.cron_schedule,
         }
     else:
         sched_params = {
