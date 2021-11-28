@@ -31,16 +31,20 @@ from .models import (
 class AppTrackerAdmin(admin.ModelAdmin):
     list_display = ["id", "site", "name", "active", "url_field"]
 
+    # Add url in list
     @mark_safe
     def url_field(self, obj):
         return '<a href="%s">%s</a>' % (obj.url, obj.url)
 
     url_field.allow_tags = True
     url_field.short_description = "URL"
+
+    # Add JSON editor
     formfield_overrides = {
         # fields.JSONField: {'widget': JSONEditorWidget}, # if django < 3.1
         models.JSONField: {"widget": JSONEditorWidget},
     }
+
     save_as = True
 
 
@@ -51,7 +55,6 @@ admin.site.register(AppCategory)
 admin.site.register(AppTrackerChange)
 admin.site.register(AppUserProfile)
 admin.site.register(AppUserSubscription)
-
 admin.site.unregister([q_models.Failure])
 
 

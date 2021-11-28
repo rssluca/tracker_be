@@ -1,12 +1,14 @@
 import requests
 import os
 import json
-import difflib as dl
+from re import sub
+from decimal import Decimal
 from .notifications import send_slack_message
 from ..models import AppTrackerChange, AppSite
 from ..constants import HEADERS, TRACKER_TYPES, TRACKER_METHODS
 from .selenium_driver import SeleniumDriver, is_fb_logged_in, fb_login
 from lxml import html
+from lxml.html.diff import htmldiff
 
 
 def get_lxml_page(tracker_url):
@@ -24,16 +26,9 @@ def get_lxml_page(tracker_url):
     page = requests.get(tracker_url, headers=HEADERS)
 
     if page.status_code != 200:
-        # send_slack_message(
-        #     "ERROR!",
-        #     f"ERROR {tracker_url} status code {page.status_code}",
-        #     "TestAppBot",
-        #     "SLACK_KEY_ERROR_ALERTS",
-        # )
         raise IOError(f"Call returned error {page.status_code}")
     else:
         tree = html.fromstring(page.content)
-
         return tree
 
 
@@ -58,11 +53,11 @@ def get_selenium_page(tracker_url):
 
         driver.get(tracker_url)
         driver.implicitly_wait(5)
+
+        return selenium_object, driver
     except Exception as e:
         e_type = type(e).__name__
         print(e_type, "in Selenium get_page")
-
-    return selenium_object, driver
 
 
 def get_lxml_new_items(id, tracker_url, params):
@@ -112,12 +107,10 @@ def get_selenium_new_items(id, tracker_url, params):
         list[string]: title, item_url, location
     """
     selenium_object, driver = get_selenium_page(tracker_url)
-
     title = item_url = location = None
 
     for set in params["xpaths"]:
         t = driver.find_elements_by_xpath(set["title_xpath"])
-
         if len(t) != 0:
             title = t[0].text
         if set["link_xpath"] != "":
@@ -134,7 +127,7 @@ def get_selenium_new_items(id, tracker_url, params):
     return title, item_url, location
 
 
-def get_content(tracker_url, tracker_method, items_params):
+def get_content(tracker_url, tracker_method, params):
     """Get content for multiple items.
 
     Args:
@@ -146,20 +139,18 @@ def get_content(tracker_url, tracker_method, items_params):
         list: The contents.
     """
 
-    content = []
-
+    content = dict()
+    # For each xpath found add it to the content dict (the last found will always be the final value)
     if tracker_method == "xpath":
         tree = get_lxml_page(tracker_url)
-        for item_params in items_params:
-            for set in item_params["xpaths"]:
-                content.append(tree.xpath(set["content_xpath"])[0].text_content())
+        for set in params["xpaths"]:
+            for xpath in set:
+                content[xpath] = tree.xpath(set[xpath])[0].text_content()
     else:
         selenium_object, driver = get_selenium_page(tracker_url)
-        for item_params in items_params:
-            for set in item_params["xpaths"]:
-                content.append(
-                    driver.find_elements_by_xpath(set["content_xpath"])[0].text
-                )
+        for set in params["xpaths"]:
+            for xpath in set:
+                content[xpath] = driver.find_elements_by_xpath(set[xpath])[0].text
 
         selenium_object.quit()
 
@@ -175,23 +166,24 @@ def check_change(
     tracker_method,
     params,
 ):
-    site = AppSite.objects.get(id=site_id)
-    content = get_content(tracker_url, tracker_method, [params])
+    content = get_content(tracker_url, tracker_method, params)
 
     changes = None
 
     if AppTrackerChange.objects.filter(tracker_id=id).exists():
-        change = (
+        current = (
             AppTrackerChange.objects.filter(tracker_id=id).order_by("id").reverse()[0]
         )
-        if change.changed_content != content[0]:
-            d = dl.Differ()
-            changes = json.dumps(d.compare(change.changed_content, content[0]))
+        if current.changed_content != content["content_xpath"]:
+            changes = htmldiff(current.changed_content, content["content_xpath"])
+
     else:
-        changes = content[0]
+        changes = content["content_xpath"]
 
     if changes:
-        t = AppTrackerChange(tracker_id=id, changed_content=content[0], changes=changes)
+        t = AppTrackerChange(
+            tracker_id=id, changed_content=content["content_xpath"], changes=changes
+        )
         t.save()
         send_slack_message(
             f"Page {tracker_url} has changed",
@@ -199,6 +191,68 @@ def check_change(
             "TestAppBot",
             "SLACK_KEY_ALERTS",
         )
+
+
+def check_price_and_avail(
+    id,
+    name,
+    search_key,
+    site_id,
+    tracker_url,
+    tracker_method,
+    params,
+):
+
+    content = get_content(tracker_url, tracker_method, params)
+    content_price = Decimal(sub(r"[^\d.]", "", content["price_xpath"]))
+    is_available = content["available_xpath"] != None
+
+    price_change = None
+    avail_change = None
+
+    current = None
+
+    if AppTrackerChange.objects.filter(tracker_id=id).exists():
+        # Pull previous
+        current = (
+            AppTrackerChange.objects.filter(tracker_id=id).order_by("id").reverse()[0]
+        )
+
+        # Check price
+        if current.price != content:
+            price_change = content_price
+
+        # Check avail - If avail_xpath not None then it is available
+        if is_available != current.available:
+            avail_change = is_available
+    else:
+        price_change = content_price
+        avail_change = is_available
+
+    args = {}
+    if price_change:
+        args["price"] = price_change
+        # If current exists output old price
+        old_price = f" ({current.price})" if current else ""
+        send_slack_message(
+            f"{name} price change",
+            f"New price: ${price_change}{old_price}\n{tracker_url}",
+            "TestAppBot",
+            "SLACK_KEY_ALERTS",
+        )
+    if avail_change:
+        args["available"] = avail_change
+        if avail_change == True:
+            send_slack_message(
+                f"{name} is avalable!",
+                tracker_url,
+                "TestAppBot",
+                "SLACK_KEY_ALERTS",
+            )
+
+    if args:
+        t = AppTrackerChange(tracker_id=id, changed_content=str(args), **args)
+        t.save()
 
 
 def check_new_item(
@@ -244,13 +298,13 @@ def check_new_item(
             item_url = site.url + item_url
 
         if AppTrackerChange.objects.filter(tracker_id=id).exists():
-            change = (
+            current = (
                 AppTrackerChange.objects.filter(tracker_id=id)
                 .order_by("id")
                 .reverse()[0]
             )
 
-            if change.item_url != item_url:
+            if current.item_url != item_url:
                 save = True
         else:
             save = True
@@ -262,7 +316,7 @@ def check_new_item(
             "SLACK_KEY_VESPA_ALERTS" if search_key == "vespa" else "SLACK_KEY_ALERTS"
         )
         send_slack_message(
-            f"New item from {name} search on {site.name}",
+            f"New {name} item!",
             f"{title} just become available in {location} - {item_url}",
             "TestAppBot",
             token,

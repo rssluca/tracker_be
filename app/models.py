@@ -116,6 +116,18 @@ class AppTrackerChange(models.Model):
 
 class AppTracker(models.Model):
     name = models.CharField(max_length=255)
+    # type is a python funtion
+    t_type = models.CharField(
+        max_length=255,
+        choices=[(t, t) for t in TRACKER_TYPES],
+        default="new_item",
+        verbose_name="type",
+    )
+    method = models.CharField(
+        max_length=255,
+        choices=[(t, t) for t in TRACKER_METHODS],
+        default="xpath",
+    )
     search_key = models.CharField(max_length=255, blank=True, null=True)
     url = models.TextField()
     site = models.ForeignKey(AppSite, models.DO_NOTHING)
@@ -132,22 +144,13 @@ class AppTracker(models.Model):
         null=True,
         help_text="https://docs.oracle.com/cd/E12058_01/doc/doc.1014/e12030/cron_expressions.htm",
     )
-    type = models.CharField(
-        max_length=255,
-        choices=[(t, t) for t in TRACKER_TYPES],
-        default="new_item",
-    )
-    method = models.CharField(
-        max_length=255,
-        choices=[(t, t) for t in TRACKER_METHODS],
-        default="xpath",
-    )
     params = models.JSONField(default=get_default_params)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         managed = False
+
         db_table = "app_trackers"
 
     def clean(self):
@@ -162,9 +165,23 @@ class AppTracker(models.Model):
 
 
 def create_task(sender, instance, **kwargs):
+    # Build name
+    if instance.t_type == "new_item":
+        name = f"{instance.site.name} {instance.name}"
+    elif instance.t_type == "change":
+        name = instance.name
+    else:
+        # Last is price and avail
+        name = []
+        if instance.site.name.lower() in instance.product.brand.name:
+            name.append(instance.site.name)
+        name.extend([instance.product.brand.name, instance.product.name])
+        if instance.name.lower() not in instance.product.name.lower():
+            name.append(instance.name)
+
     params = [
         instance.id,
-        instance.name,
+        " ".join(name),
         instance.search_key,
         instance.site.id,
         instance.url,
@@ -187,15 +204,16 @@ def create_task(sender, instance, **kwargs):
     if not Schedule.objects.filter(name=instance.id).exists():
         if instance.active:
             schedule(
-                "app.utils.tracker.check_" + instance.type,
+                "app.utils.tracker.check_" + instance.t_type,
                 *params,
                 hook="app.utils.hooks.notify_error",
                 name=instance.id,
-                **sched_params
+                **sched_params,
             )
     else:
         task = Schedule.objects.get(name=instance.id)
         if instance.active:
+            task.func = "app.utils.tracker.check_" + instance.t_type
             task.args = tuple(params)
             if instance.cron_schedule:
                 task.schedule_type = Schedule.CRON
