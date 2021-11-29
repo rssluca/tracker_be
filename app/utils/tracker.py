@@ -204,8 +204,8 @@ def check_price_and_avail(
 ):
 
     content = get_content(tracker_url, tracker_method, params)
-    content_price = Decimal(sub(r"[^\d.]", "", content["price_xpath"]))
-    is_available = content["available_xpath"] != None
+    content_price = float(Decimal(sub(r"[^\d.]", "", content["price_xpath"])))
+    is_available = True if content["available_xpath"] else False
 
     price_change = None
     avail_change = None
@@ -219,10 +219,12 @@ def check_price_and_avail(
         )
 
         # Check price
-        if current.price != content:
+        if current.price != content_price:
             price_change = content_price
 
         # Check avail - If avail_xpath not None then it is available
+        print("AVAILABLE?", current.available, is_available)
+        print("PRICE?", current.price, content_price)
         if is_available != current.available:
             avail_change = is_available
     else:
@@ -233,7 +235,7 @@ def check_price_and_avail(
     if price_change:
         args["price"] = price_change
         # If current exists output old price
-        old_price = f" ({current.price})" if current else ""
+        old_price = f" (Previously ${current.price})" if current else ""
         send_slack_message(
             f"{name} price change",
             f"New price: ${price_change}{old_price}\n{tracker_url}",
@@ -242,7 +244,8 @@ def check_price_and_avail(
         )
     if avail_change:
         args["available"] = avail_change
-        if avail_change == True:
+        # Send alert only if not to available change
+        if avail_change == True and current.available == False:
             send_slack_message(
                 f"{name} is avalable!",
                 tracker_url,
@@ -251,6 +254,7 @@ def check_price_and_avail(
             )
 
     if args:
+        print("ARGS", args)
         t = AppTrackerChange(tracker_id=id, changed_content=str(args), **args)
         t.save()
 
@@ -294,7 +298,7 @@ def check_new_item(
 
     if not skip:
         # If site url is not in item_url, prepend it
-        if site.url not in item_url:
+        if item_url and site.url not in item_url:
             item_url = site.url + item_url
 
         if AppTrackerChange.objects.filter(tracker_id=id).exists():
