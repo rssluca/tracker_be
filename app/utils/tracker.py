@@ -243,7 +243,9 @@ def check_price_and_avail(
     if avail_change:
         args["available"] = avail_change
         # Send alert only if not to available change
-        if avail_change == True and current.available == False:
+        if (current and current.available == False and avail_change == True) or (
+            not current and avail_change == True
+        ):
             send_slack_message(
                 f"{name} is avalable!",
                 tracker_url,
