@@ -223,8 +223,6 @@ def check_price_and_avail(
             price_change = content_price
 
         # Check avail - If avail_xpath not None then it is available
-        print("AVAILABLE?", current.available, is_available)
-        print("PRICE?", current.price, content_price)
         if is_available != current.available:
             avail_change = is_available
     else:
