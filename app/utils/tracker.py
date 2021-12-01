@@ -96,7 +96,7 @@ def get_lxml_new_items(id, tracker_url, params):
 
 def get_selenium_new_items(id, tracker_url, params):
     """Get new items from the selenium page and extract first title, location and link params from it
-    TODO allow any params not just the above ones.
+    TODO allow any params not just the below.
 
     Args:
         id (int): The id of the tracker
@@ -193,7 +193,7 @@ def check_change(
         )
 
 
-def check_price_and_avail(
+def check_price(
     id,
     name,
     search_key,
@@ -205,9 +205,47 @@ def check_price_and_avail(
 
     content = get_content(tracker_url, tracker_method, params)
     content_price = float(Decimal(sub(r"[^\d.]", "", content["price_xpath"])))
-    is_available = True if content["available_xpath"] else False
 
     price_change = None
+
+    current = None
+
+    if AppTrackerChange.objects.filter(tracker_id=id).exists():
+        # Pull previous
+        current = (
+            AppTrackerChange.objects.filter(tracker_id=id).order_by("id").reverse()[0]
+        )
+        # Check price
+        if current.price != content_price:
+            price_change = content_price
+    else:
+        price_change = content_price
+
+    if price_change:
+        # If current exists output old price
+        old_price = f" (Previously ${current.price})" if current else ""
+        send_slack_message(
+            f"{name} price change",
+            f"New price: ${price_change}{old_price}\n{tracker_url}",
+            "TestAppBot",
+            "SLACK_KEY_ALERTS",
+        )
+        t = AppTrackerChange(tracker_id=id, price=price_change)
+        t.save()
+
+
+def check_availability(
+    id,
+    name,
+    search_key,
+    site_id,
+    tracker_url,
+    tracker_method,
+    params,
+):
+
+    content = get_content(tracker_url, tracker_method, params)
+    is_available = True if content["available_xpath"] else False
     avail_change = None
 
     current = None
@@ -218,30 +256,13 @@ def check_price_and_avail(
             AppTrackerChange.objects.filter(tracker_id=id).order_by("id").reverse()[0]
         )
 
-        # Check price
-        if current.price != content_price:
-            price_change = content_price
-
         # Check avail - If avail_xpath not None then it is available
         if is_available != current.available:
             avail_change = is_available
     else:
-        price_change = content_price
         avail_change = is_available
 
-    args = {}
-    if price_change:
-        args["price"] = price_change
-        # If current exists output old price
-        old_price = f" (Previously ${current.price})" if current else ""
-        send_slack_message(
-            f"{name} price change",
-            f"New price: ${price_change}{old_price}\n{tracker_url}",
-            "TestAppBot",
-            "SLACK_KEY_ALERTS",
-        )
     if avail_change:
-        args["available"] = avail_change
         # Send alert only if not to available change
         if (current and current.available == False and avail_change == True) or (
             not current and avail_change == True
@@ -252,10 +273,7 @@ def check_price_and_avail(
                 "TestAppBot",
                 "SLACK_KEY_ALERTS",
             )
-
-    if args:
-        print("ARGS", args)
-        t = AppTrackerChange(tracker_id=id, changed_content=str(args), **args)
+        t = AppTrackerChange(tracker_id=id, available=avail_change)
         t.save()
 
 

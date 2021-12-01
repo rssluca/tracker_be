@@ -152,8 +152,8 @@ CACHES = {
 Q_CLUSTER = {
     "name": "Shoptrio_beRedis",
     "workers": 4,
-    "timeout": 90,
-    "retry": 120,
+    "timeout": 600,
+    "retry": 660,
     "django_redis": "default",
     "catch_up": False,
 }
