@@ -84,12 +84,14 @@ def get_lxml_new_items(id, tracker_url, params):
             title = t[0].text_content()
         if set["link_xpath"] != "":
             u = tree.xpath(set["link_xpath"])
-            if len(t) != 0:
+            if len(u) != 0:
                 item_url = u[0].get("href")
         if set["location_xpath"] != "":
             l = tree.xpath(set["location_xpath"])
             if len(l) != 0:
                 location = l[0].text_content()
+        if title and item_url and location:
+            break
 
     return title, item_url, location
 
@@ -115,12 +117,14 @@ def get_selenium_new_items(id, tracker_url, params):
             title = t[0].text
         if set["link_xpath"] != "":
             u = driver.find_elements_by_xpath(set["link_xpath"])
-            if len(t) != 0:
+            if len(u) != 0:
                 item_url = u[0].get_attribute("href")
         if set["location_xpath"] != "":
             l = driver.find_elements_by_xpath(set["location_xpath"])
             if len(l) != 0:
                 location = l[0].text
+        if title and item_url and location:
+            break
 
     selenium_object.quit()
 
