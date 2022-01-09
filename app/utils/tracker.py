@@ -339,7 +339,9 @@ def check_new_item(
         t = AppTrackerChange(tracker_id=id, item_desc=title, item_url=item_url)
         t.save()
         token = (
-            "SLACK_KEY_VESPA_ALERTS" if search_key == "vespa" else "SLACK_KEY_ALERTS"
+            "SLACK_KEY_VESPA_ALERTS"
+            if search_key in ["vespa", "lambretta"]
+            else "SLACK_KEY_ALERTS"
         )
         send_slack_message(
             f"New {name} item!",
