@@ -323,16 +323,8 @@ def check_new_item(
         if item_url and site.url not in item_url:
             item_url = site.url + item_url
 
-        if AppTrackerChange.objects.filter(tracker_id=id).exists():
-            current = (
-                AppTrackerChange.objects.filter(tracker_id=id)
-                .order_by("id")
-                .reverse()[0]
-            )
-
-            if current.item_url != item_url:
-                save = True
-        else:
+        # Change to
+        if not AppTrackerChange.objects.filter(item_url=item_url).exists():
             save = True
 
     if save:
